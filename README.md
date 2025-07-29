@@ -19,6 +19,15 @@ Our mission is to revolutionize healthcare by enhancing the safety and effective
 
 For instructions on how to connect and work on the group's server, please see the `server_connection` folder.
 
+## Repositories
+
+Here is a list of my public repositories:
+
+<!-- REPO_LIST_START -->
+<!-- This section will be automatically updated -->
+<!-- REPO_LIST_END -->
+
+
 ## Contact
 
 **Maurizio Sessa**
