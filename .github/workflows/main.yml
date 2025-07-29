@@ -1,0 +1,43 @@
+name: Update README with Repo List
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Run every hour
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Fetch public repos and update README
+        run: |
+          GH_USER="mauriziosessa"
+          REPOS=$(curl -s "https://api.github.com/users/$GH_USER/repos?per_page=100" | jq -r '.[] | "- [\(.name)](\(.html_url))"' | sort)
+
+          # Create updated README
+          awk -v repos="$REPOS" '
+            /<!-- REPO_LIST_START -->/ {
+              print;
+              print repos;
+              skip=1;
+              next;
+            }
+            /<!-- REPO_LIST_END -->/ {
+              skip=0;
+            }
+            skip==0 {
+              print;
+            }
+          ' README.md > README.tmp && mv README.tmp README.md
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --cached --quiet || git commit -m "Update repo list"
+          git push
