@@ -22,11 +22,11 @@ Our GitHub organization hosts multiple repositories aligned with the group’s r
 
 ## 👥 Group Members
 **Principal Investigator**
-Maurizio Sessa, Associate Professor, Group Leader – [Maurizio.sessa@sund.ku.dk](mailto:Maurizio.sessa@sund.ku.dk)
+- Maurizio Sessa, Associate Professor, Group Leader – [Maurizio.sessa@sund.ku.dk](mailto:Maurizio.sessa@sund.ku.dk)
 
 **Affiliated Researchers & Collaborators**
-Nicole Heckmann, Master's Student - [kpr234@ku.dk](mailto:kpr234@ku.dk)
-Daizy Lopez, Master's Student - [kvt989@alumni.ku.dk](mailto:kvt989@alumni.ku.dk)
+- Nicole Heckmann, Master's Student - [kpr234@ku.dk](mailto:kpr234@ku.dk)
+- Daizy Lopez, Master's Student - [kvt989@alumni.ku.dk](mailto:kvt989@alumni.ku.dk)
 
 ## 📫 Contact
 **Maurizio Sessa**
