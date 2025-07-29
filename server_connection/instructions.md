@@ -1,4 +1,4 @@
-# Instructions for Project Access and Setup
+# Instructions for DSG Server Access and Setup
 
 
 ## 🔹 Remote Server Overview
