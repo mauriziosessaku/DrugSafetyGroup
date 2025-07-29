@@ -1,26 +1,34 @@
 # Sessa Research Group - Drug Safety
+Welcome to the GitHub organization for the Sessa Research Group at the University of Copenhagen. We are a multidisciplinary team dedicated to advancing drug safety research through cutting-edge methods in data science, epidemiology, and artificial intelligence.
 
-Welcome to the GitHub organization for the Sessa Research Group at the University of Copenhagen.
+## 🧬 About the Group
+At the intersection of pharmaceutical science and applied data science, our group pioneers the use of large-scale biomedical datasets to address complex public health challenges. We develop and implement intelligent automation strategies, with a strong focus on pharmacovigilance and pharmacoepidemiology, working closely with regulatory bodies and industry partners.
 
-## About Us
+Our mission is to enhance the safety and effectiveness of medical treatments by transforming the way drug safety data is analyzed, interpreted, and acted upon.
 
-Situated at the convergence of applied data science and pharmaceutical science, we leverage large biomedical data and pioneer top-tier Artificial Intelligence solutions and intelligent automation tailored to Pharmacovigilance and Pharmacoepidemiology. With robust industry and regulatory partnerships, we address complex challenges and explore research questions within these domains.
+### 🔍 Research Areas
+- 🧪 **Applied Precision Medicine (Individualised Therapeutics):** Leveraging omics-driven insights to tailor treatment decisions based on patient-specific biological data.
+- 🛡️ **Pre-symptomatic Care (Precision Prevention):** Developing data-driven methods to identify health risks in large populations before clinical symptoms emerge.
+- 🤖 **AI-Driven Pharmacovigilance:** Harnessing artificial intelligence to modernize adverse event detection, automate signal detection, and improve decision support systems.
+- 📊 **AI-Driven Pharmacoepidemiology:** Applying machine learning to real-world data to advance our understanding of medication use, outcomes, and safety at scale.
 
-Our mission is to revolutionize healthcare by enhancing the safety and effectiveness of treatments.
+## 📁 Repository Structure
+Our GitHub organization hosts multiple repositories aligned with the group’s research focus. Repositories follow a consistent structure to promote collaboration and reproducibility:
+```bash
+📂
+├── server_connection/          # Instructions for server access and folder setup
+└── README.md                   # This file
+```
 
-### Research Areas
+## 👥 Group Members
+**Principal Investigator**
+Maurizio Sessa, Associate Professor, Group Leader – [Maurizio.sessa@sund.ku.dk](mailto:Maurizio.sessa@sund.ku.dk)
 
-*   **Applied Precision Medicine (Individualised Therapeutics):** We are pioneering precision medicine by integrating various omics data with a diverse range of datasets.
-*   **Pre-symptomatic Care (Precision Prevention):** We are dedicated to the invaluable task of identifying potential health issues in large populations even before symptoms manifest.
-*   **AI-Driven Pharmacovigilance:** Our mission is to propel pharmacovigilance into the future by leading the research and application of AI to automate intricate and labor-intensive processes.
-*   **AI-Driven Pharmacoepidemiology:** We are committed to shaping the future of pharmacoepidemiology through the research of strategic implementation and applications of AI.
+**Affiliated Researchers & Collaborators**
+Nicole Heckmann, Master's Student - [kpr234@ku.dk](mailto:kpr234@ku.dk)
+Daizy Lopez, Master's Student - [kvt989@alumni.ku.dk](mailto:kvt989@alumni.ku.dk)
 
-## Connecting to the Server
-
-For instructions on how to connect and work on the group's server, please see the `server_connection` folder.
-
-## Contact
-
+## 📫 Contact
 **Maurizio Sessa**
 Associate Professor, Group Leader
 [Maurizio.sessa@sund.ku.dk](mailto:Maurizio.sessa@sund.ku.dk)
