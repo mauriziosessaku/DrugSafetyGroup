@@ -1,0 +1,31 @@
+name: Update README
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *' # Run once a day
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update README
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_LIST=$(gh repo list --json name --jq '.[] | .name')
+          REPO_LINKS=""
+          for REPO in $REPO_LIST; do
+            REPO_LINKS="$REPO_LINKS- [$REPO](https://github.com/Sessa-Group/$REPO)\n"
+          done
+          sed -i '/<!-- REPO_LIST_START -->/,/<!-- REPO_LIST_END -->/c\<!-- REPO_LIST_START -->\n'"$REPO_LINKS"'<!-- REPO_LIST_END -->' README.md
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update README with new repository list"
+          branch: main
+          file_pattern: README.md

@@ -15,6 +15,11 @@ Our mission is to revolutionize healthcare by enhancing the safety and effective
 *   **AI-Driven Pharmacovigilance:** Our mission is to propel pharmacovigilance into the future by leading the research and application of AI to automate intricate and labor-intensive processes.
 *   **AI-Driven Pharmacoepidemiology:** We are committed to shaping the future of pharmacoepidemiology through the research of strategic implementation and applications of AI.
 
+## Repositories
+
+<!-- REPO_LIST_START -->
+<!-- REPO_LIST_END -->
+
 ## Connecting to the Server
 
 For instructions on how to connect and work on the group's server, please see the `server_connection` folder.
