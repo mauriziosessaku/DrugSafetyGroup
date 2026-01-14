@@ -212,8 +212,8 @@ def main():
         
         st.markdown("---")
         
-        # Load sample data button
-        if st.button("📋 Load Sample Case", use_container_width=True):
+        # Load data button
+        if st.button("📋 Open Case", use_container_width=True):
             st.session_state['df'] = load_sample_data()
             st.success("Sample data loaded!")
         
