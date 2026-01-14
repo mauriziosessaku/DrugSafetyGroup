@@ -2,14 +2,6 @@ import streamlit as st
 import pandas as pd
 from io import StringIO
 
-# Try to import Google Sheets libraries (optional)
-try:
-    import gspread
-    from google.oauth2.service_account import Credentials
-    GOOGLE_SHEETS_AVAILABLE = True
-except ImportError:
-    GOOGLE_SHEETS_AVAILABLE = False
-
 # Page config
 st.set_page_config(
     page_title="FDA Adverse Event Case Viewer",
