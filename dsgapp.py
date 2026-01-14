@@ -260,10 +260,6 @@ def main():
     with st.sidebar:
         st.header("📁 Data Source")
         
-        # Google Sheets option - only show if libraries available
-        if GOOGLE_SHEETS_AVAILABLE:
-            st.subheader("🔗 Option 1: Google Sheets")
-            
             # Default sheet URL
             default_sheet_url = "https://docs.google.com/spreadsheets/d/1jsN9Mjrudq7dK1tX7qgcARjN_YJwrmxNiSk6-p-qBk8/edit?usp=sharing"
             
