@@ -141,6 +141,16 @@ def process_drug_data(row):
     rechals = parse_separated_values(row.get('rechal', ''))
     lot_nums = parse_separated_values(row.get('lot_num', ''))
     
+    # Additional fields
+    val_vbms = parse_separated_values(row.get('val_vbm', ''))
+    dose_vbms = parse_separated_values(row.get('dose_vbm', ''))
+    cum_dose_chrs = parse_separated_values(row.get('cum_dose_chr', ''))
+    cum_dose_units = parse_separated_values(row.get('cum_dose_unit', ''))
+    exp_dts = parse_separated_values(row.get('exp_dt', ''))
+    nda_nums = parse_separated_values(row.get('nda_num', ''))
+    durs = parse_separated_values(row.get('dur', ''))
+    dur_cods = parse_separated_values(row.get('dur_cod', ''))
+    
     drugs = []
     for i in range(len(sequences)):
         drugs.append({
@@ -158,7 +168,15 @@ def process_drug_data(row):
             'end_date': end_dates[i] if i < len(end_dates) else 'NA',
             'dechallenge': dechals[i] if i < len(dechals) else 'NA',
             'rechallenge': rechals[i] if i < len(rechals) else 'NA',
-            'lot_number': lot_nums[i] if i < len(lot_nums) else 'NA'
+            'lot_number': lot_nums[i] if i < len(lot_nums) else 'NA',
+            'val_vbm': val_vbms[i] if i < len(val_vbms) else 'NA',
+            'dose_vbm': dose_vbms[i] if i < len(dose_vbms) else 'NA',
+            'cum_dose_chr': cum_dose_chrs[i] if i < len(cum_dose_chrs) else 'NA',
+            'cum_dose_unit': cum_dose_units[i] if i < len(cum_dose_units) else 'NA',
+            'exp_dt': exp_dts[i] if i < len(exp_dts) else 'NA',
+            'nda_num': nda_nums[i] if i < len(nda_nums) else 'NA',
+            'duration': durs[i] if i < len(durs) else 'NA',
+            'duration_code': dur_cods[i] if i < len(dur_cods) else 'NA'
         })
     
     return drugs
@@ -197,7 +215,6 @@ def main():
         # Load sample data button
         if st.button("📋 Load Sample Case", use_container_width=True):
             st.session_state['df'] = load_sample_data()
-            st.session_state['selected_row'] = 0
             st.success("Sample data loaded!")
         
         st.markdown("---")
@@ -206,7 +223,7 @@ def main():
         with st.expander("📖 How to Use"):
             st.markdown("""
             1. **Upload your data** (CSV/TSV)
-            2. **Select a case** from the dropdown
+            2. **Enter Primary ID or Case ID** to search
             3. **View organized information** in three sections:
                - Administrative
                - Demographics
@@ -223,7 +240,7 @@ def main():
             st.markdown("""
             **FDA Adverse Event Case Viewer**
             
-            Version 1.0
+            Version 2.0
             
             Created for clinical assessors to efficiently review adverse event reports with grouped drug information.
             """)
@@ -236,7 +253,22 @@ def main():
             else:
                 df = pd.read_csv(uploaded_file)
             st.session_state['df'] = df
-            st.success(f"✅ Loaded {len(df)} cases")
+            
+            # Show dataset statistics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Cases", f"{len(df):,}")
+            with col2:
+                unique_primary = df['primaryid'].nunique() if 'primaryid' in df.columns else 0
+                st.metric("Unique Primary IDs", f"{unique_primary:,}")
+            with col3:
+                unique_case = df['caseid'].nunique() if 'caseid' in df.columns else 0
+                st.metric("Unique Case IDs", f"{unique_case:,}")
+            with col4:
+                assessors = df['assessor'].nunique() if 'assessor' in df.columns else 0
+                st.metric("Assessors", f"{assessors:,}")
+            
+            st.success(f"✅ Data loaded successfully!")
         except Exception as e:
             st.error(f"Error loading file: {str(e)}")
             return
@@ -248,51 +280,178 @@ def main():
     
     df = st.session_state['df']
     
-    # Case selector
-    case_options = [f"Case {row['caseid']} - {row.get('assessor', 'Unassigned')}" 
-                   for idx, row in df.iterrows()]
+    # Search interface
+    st.markdown("---")
     
-    selected_case = st.selectbox(
-        "Select a case to view:",
-        range(len(case_options)),
-        format_func=lambda x: case_options[x],
-        key='case_selector'
-    )
+    # Advanced search toggle
+    with st.expander("🔍 Advanced Search Options", expanded=False):
+        adv_col1, adv_col2 = st.columns(2)
+        with adv_col1:
+            search_assessor = st.selectbox(
+                "Filter by Assessor",
+                options=['All'] + sorted(df['assessor'].dropna().unique().tolist()) if 'assessor' in df.columns else ['All'],
+                help="Filter cases by assessor"
+            )
+        with adv_col2:
+            search_country = st.selectbox(
+                "Filter by Country",
+                options=['All'] + sorted(df['occr_country'].dropna().unique().tolist()) if 'occr_country' in df.columns else ['All'],
+                help="Filter cases by occurrence country"
+            )
     
-    # Get selected row
-    row = df.iloc[selected_case]
+    col1, col2, col3 = st.columns([2, 2, 1])
+    
+    with col1:
+        search_primary = st.text_input(
+            "🔍 Search by Primary ID",
+            placeholder="Enter Primary ID (e.g., 102854963)",
+            help="Enter the Primary ID to find a specific case"
+        )
+    
+    with col2:
+        search_case = st.text_input(
+            "🔍 Search by Case ID",
+            placeholder="Enter Case ID (e.g., 10285496)",
+            help="Enter the Case ID to find a specific case"
+        )
+    
+    with col3:
+        st.write("")  # Spacing
+        st.write("")  # Spacing
+        search_button = st.button("🔎 Search", use_container_width=True)
+    
+    # Search logic
+    row = None
+    filtered_df = df.copy()
+    
+    # Apply advanced filters
+    if 'search_assessor' in locals() and search_assessor != 'All':
+        filtered_df = filtered_df[filtered_df['assessor'] == search_assessor]
+    if 'search_country' in locals() and search_country != 'All':
+        filtered_df = filtered_df[filtered_df['occr_country'] == search_country]
+    
+    if search_button or search_primary or search_case:
+        if search_primary:
+            # Search by primary ID
+            mask = filtered_df['primaryid'].astype(str) == str(search_primary)
+            matches = filtered_df[mask]
+            
+            if len(matches) > 0:
+                row = matches.iloc[0]
+                st.success(f"✅ Found case with Primary ID: {search_primary}")
+                if len(matches) > 1:
+                    st.info(f"ℹ️ Found {len(matches)} matching cases. Showing first result.")
+            else:
+                st.error(f"❌ No case found with Primary ID: {search_primary}")
+                if len(filtered_df) < len(df):
+                    st.info("💡 Tip: Try removing filters in Advanced Search Options")
+                return
+        
+        elif search_case:
+            # Search by case ID
+            mask = filtered_df['caseid'].astype(str) == str(search_case)
+            matches = filtered_df[mask]
+            
+            if len(matches) > 0:
+                row = matches.iloc[0]
+                st.success(f"✅ Found case with Case ID: {search_case}")
+                if len(matches) > 1:
+                    st.info(f"ℹ️ Found {len(matches)} matching cases. Showing first result.")
+            else:
+                st.error(f"❌ No case found with Case ID: {search_case}")
+                if len(filtered_df) < len(df):
+                    st.info("💡 Tip: Try removing filters in Advanced Search Options")
+                return
+        else:
+            st.warning("⚠️ Please enter a Primary ID or Case ID to search")
+            return
+    else:
+        # Show prompt to search
+        st.info("👆 Enter a Primary ID or Case ID above and click Search")
+        
+        # Show sample IDs
+        if len(df) > 0:
+            st.markdown("**Sample IDs you can try:**")
+            sample_cols = st.columns(3)
+            for i, (idx, sample_row) in enumerate(df.head(3).iterrows()):
+                with sample_cols[i]:
+                    st.code(f"Primary ID: {sample_row.get('primaryid', 'NA')}\nCase ID: {sample_row.get('caseid', 'NA')}")
+        return
     
     st.markdown("---")
     
     # Administrative Section
     st.markdown('<div class="section-header">📋 Administrative Information</div>', unsafe_allow_html=True)
-    admin_cols = st.columns(4)
-    with admin_cols[0]:
+    
+    # Row 1: Primary identifiers
+    admin_cols1 = st.columns(5)
+    with admin_cols1[0]:
         display_field("Case ID", row.get('caseid', 'NA'))
-        display_field("Event Date", row.get('event_dt', 'NA'))
-    with admin_cols[1]:
+    with admin_cols1[1]:
         display_field("Primary ID", row.get('primaryid', 'NA'))
-        display_field("FDA Date", row.get('fda_dt', 'NA'))
-    with admin_cols[2]:
-        display_field("Assessor", row.get('assessor', 'NA'))
-        display_field("Report Date", row.get('rept_dt', 'NA'))
-    with admin_cols[3]:
+    with admin_cols1[2]:
+        display_field("Case Version", row.get('caseversion', 'NA'))
+    with admin_cols1[3]:
+        display_field("Status", row.get('status', 'NA'))
+    with admin_cols1[4]:
+        display_field("I/F Code", row.get('i_f_code', 'NA'))
+    
+    # Row 2: Dates
+    admin_cols2 = st.columns(5)
+    with admin_cols2[0]:
         display_field("Assignment Date", row.get('date_assignement', 'NA'))
+    with admin_cols2[1]:
+        display_field("Event Date", row.get('event_dt', 'NA'))
+    with admin_cols2[2]:
+        display_field("Manufacture Date", row.get('mfr_dt', 'NA'))
+    with admin_cols2[3]:
+        display_field("Initial FDA Date", row.get('init_fda_dt', 'NA'))
+    with admin_cols2[4]:
+        display_field("FDA Date", row.get('fda_dt', 'NA'))
+    
+    # Row 3: Report info
+    admin_cols3 = st.columns(5)
+    with admin_cols3[0]:
+        display_field("Report Date", row.get('rept_dt', 'NA'))
+    with admin_cols3[1]:
+        display_field("Report Code", row.get('rept_cod', 'NA'))
+    with admin_cols3[2]:
+        display_field("To Manufacturer", row.get('to_mfr', 'NA'))
+    with admin_cols3[3]:
+        display_field("Assessor", row.get('assessor', 'NA'))
+    with admin_cols3[4]:
         display_field("Reporter Country", row.get('reporter_country', 'NA'))
+    
+    # Row 4: Manufacturer info
+    admin_cols4 = st.columns(5)
+    with admin_cols4[0]:
+        display_field("Manufacturer Number", row.get('mfr_num', 'NA'))
+    with admin_cols4[1]:
+        display_field("Manufacturer Sender", row.get('mfr_sndr', 'NA'))
+    with admin_cols4[2]:
+        display_field("Authorization Number", row.get('auth_num', 'NA'))
+    with admin_cols4[3]:
+        display_field("Literature Reference", row.get('lit_ref', 'NA'))
+    with admin_cols4[4]:
+        display_field("Occurrence Country", row.get('occr_country', 'NA'))
     
     # Demographics Section
     st.markdown('<div class="section-header">👤 Patient Demographics</div>', unsafe_allow_html=True)
-    demo_cols = st.columns(4)
+    demo_cols = st.columns(6)
     with demo_cols[0]:
         age_str = f"{row.get('age', 'NA')} {row.get('age_cod', '')}"
         display_field("Age", age_str.strip())
     with demo_cols[1]:
-        display_field("Sex", row.get('sex', 'NA'))
+        display_field("Age Group", row.get('age_grp', 'NA'))
     with demo_cols[2]:
+        display_field("Sex", row.get('sex', 'NA'))
+    with demo_cols[3]:
         wt_str = f"{row.get('wt', 'NA')} {row.get('wt_cod', '')}"
         display_field("Weight", wt_str.strip())
-    with demo_cols[3]:
-        display_field("Country", row.get('occr_country', 'NA'))
+    with demo_cols[4]:
+        display_field("E-Sub", row.get('e_sub', 'NA'))
+    with demo_cols[5]:
+        display_field("Occupation Code", row.get('occp_cod', 'NA'))
     
     # Adverse Reactions Section
     st.markdown('<div class="section-header">⚠️ Adverse Reactions</div>', unsafe_allow_html=True)
@@ -321,29 +480,90 @@ def main():
         with header_cols[1]:
             st.markdown(f'<div class="role-badge badge-{role_class}">{role_label}</div>', unsafe_allow_html=True)
         
-        # Drug details
-        drug_cols = st.columns(3)
+        # Drug details - Row 1: Basic Info
+        st.markdown("**Basic Information**")
+        drug_cols1 = st.columns(4)
         
-        with drug_cols[0]:
+        with drug_cols1[0]:
             display_field("Product/Active Ingredient", drug['product_ai'])
+        with drug_cols1[1]:
             display_field("Indication", drug['indication'])
+        with drug_cols1[2]:
             display_field("Route", drug['route'])
-            display_field("Start Date", drug['start_date'])
+        with drug_cols1[3]:
+            display_field("VAL VBM", drug['val_vbm'])
         
-        with drug_cols[1]:
+        # Row 2: Dosing
+        st.markdown("**Dosing Information**")
+        drug_cols2 = st.columns(5)
+        
+        with drug_cols2[0]:
             dose_str = f"{drug['dose_amount']} {drug['dose_unit']}"
             display_field("Dose", dose_str.strip())
+        with drug_cols2[1]:
             display_field("Dose Form", drug['dose_form'])
-            display_field("Frequency", drug['dose_frequency'])
-            display_field("End Date", drug['end_date'])
+        with drug_cols2[2]:
+            display_field("Dose Frequency", drug['dose_frequency'])
+        with drug_cols2[3]:
+            display_field("Dose VBM", drug['dose_vbm'])
+        with drug_cols2[4]:
+            cum_dose_str = f"{drug['cum_dose_chr']} {drug['cum_dose_unit']}"
+            display_field("Cumulative Dose", cum_dose_str.strip())
         
-        with drug_cols[2]:
-            display_field("Dechallenge", drug['dechallenge'])
-            display_field("Rechallenge", drug['rechallenge'])
+        # Row 3: Dates and Duration
+        st.markdown("**Timeline**")
+        drug_cols3 = st.columns(5)
+        
+        with drug_cols3[0]:
+            display_field("Start Date", drug['start_date'])
+        with drug_cols3[1]:
+            display_field("End Date", drug['end_date'])
+        with drug_cols3[2]:
+            dur_str = f"{drug['duration']} {drug['duration_code']}"
+            display_field("Duration", dur_str.strip())
+        with drug_cols3[3]:
+            display_field("Expiration Date", drug['exp_dt'])
+        with drug_cols3[4]:
             display_field("Lot Number", drug['lot_number'])
+        
+        # Row 4: Challenge and Other Info
+        st.markdown("**Challenge & Regulatory**")
+        drug_cols4 = st.columns(4)
+        
+        with drug_cols4[0]:
+            display_field("Dechallenge", drug['dechallenge'])
+        with drug_cols4[1]:
+            display_field("Rechallenge", drug['rechallenge'])
+        with drug_cols4[2]:
+            display_field("NDA Number", drug['nda_num'])
+        with drug_cols4[3]:
+            display_field("Sequence", drug['sequence'])
         
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Narrative Section (if available)
+    if 'narrative' in row and pd.notna(row.get('narrative')) and str(row.get('narrative')).strip() not in ['', 'NA']:
+        st.markdown('<div class="section-header">📝 Case Narrative</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-family: monospace; font-size: 13px;">
+        {row.get('narrative', 'NA')}
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Clean Narrative Section (if different from narrative)
+    if 'narrative_clean' in row and pd.notna(row.get('narrative_clean')) and str(row.get('narrative_clean')).strip() not in ['', 'NA']:
+        clean_narrative = str(row.get('narrative_clean', ''))
+        original_narrative = str(row.get('narrative', ''))
+        
+        # Only show if different from original narrative
+        if clean_narrative != original_narrative:
+            st.markdown('<div class="section-header">📋 Cleaned Case Narrative</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-family: monospace; font-size: 13px;">
+            {clean_narrative}
+            </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
