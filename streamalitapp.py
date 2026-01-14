@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from io import StringIO
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Page config
 st.set_page_config(
@@ -97,6 +99,38 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+@st.cache_data(ttl=600)  # Cache for 10 minutes
+def load_data_from_google_sheets(sheet_url):
+    """Load data directly from Google Sheets"""
+    try:
+        # Try to use Streamlit secrets (for cloud deployment)
+        if "gcp_service_account" in st.secrets:
+            credentials = Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"],
+                scopes=[
+                    "https://www.googleapis.com/auth/spreadsheets.readonly",
+                    "https://www.googleapis.com/auth/drive.readonly"
+                ]
+            )
+            gc = gspread.authorize(credentials)
+        else:
+            # Fall back to user authentication (for local development)
+            st.error("⚠️ Google Sheets credentials not configured. Please set up service account.")
+            return None
+        
+        # Open the sheet
+        sheet = gc.open_by_url(sheet_url)
+        worksheet = sheet.get_worksheet(0)  # Get first worksheet
+        
+        # Get all data
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading from Google Sheets: {str(e)}")
+        return None
 
 def parse_separated_values(value):
     """Parse semicolon-separated values"""
@@ -203,7 +237,32 @@ def main():
     with st.sidebar:
         st.header("📁 Data Source")
         
-        # File upload
+        # Google Sheets option
+        st.subheader("🔗 Option 1: Google Sheets")
+        
+        # Default sheet URL
+        default_sheet_url = "https://docs.google.com/spreadsheets/d/1jsN9Mjrudq7dK1tX7qgcARjN_YJwrmxNiSk6-p-qBk8/edit?usp=sharing"
+        
+        sheet_url = st.text_input(
+            "Google Sheet URL",
+            value=default_sheet_url,
+            help="Paste your Google Sheet URL here"
+        )
+        
+        if st.button("📊 Load from Google Sheets", use_container_width=True):
+            with st.spinner("Loading data from Google Sheets..."):
+                df = load_data_from_google_sheets(sheet_url)
+                if df is not None:
+                    st.session_state['df'] = df
+                    st.session_state['data_source'] = 'google_sheets'
+                    st.success(f"✅ Loaded {len(df):,} cases from Google Sheets!")
+                    st.rerun()
+        
+        st.markdown("---")
+        
+        # File upload option
+        st.subheader("📤 Option 2: Upload File")
+        
         uploaded_file = st.file_uploader(
             "Upload CSV/TSV file",
             type=['csv', 'tsv', 'txt'],
@@ -212,8 +271,8 @@ def main():
         
         st.markdown("---")
         
-        # Load data button
-        if st.button("📋 Open Case", use_container_width=True):
+        # Load sample data button
+        if st.button("📋 Load Sample Case", use_container_width=True):
             st.session_state['df'] = load_sample_data()
             st.success("Sample data loaded!")
         
@@ -222,12 +281,21 @@ def main():
         # Instructions
         with st.expander("📖 How to Use"):
             st.markdown("""
-            1. **Upload your data** (CSV/TSV)
-            2. **Enter Primary ID or Case ID** to search
-            3. **View organized information** in three sections:
-               - Administrative
-               - Demographics
-               - Drugs (color-coded by role)
+            **Option 1: Google Sheets (Auto-Sync)**
+            1. **Paste your Google Sheet URL** above
+            2. **Click "Load from Google Sheets"**
+            3. **Search by Primary ID or Case ID**
+            4. Data refreshes automatically every 10 minutes
+            
+            **Option 2: Manual Upload**
+            1. **Export from Google Sheets** as CSV/TSV
+            2. **Upload the file** using the file uploader
+            3. **Search by Primary ID or Case ID**
+            
+            **Searching:**
+            - Enter Primary ID or Case ID
+            - Use Advanced Filters (Assessor, Country)
+            - Click Search button
             
             **Color Codes:**
             - 🔴 Red = Primary Suspect
@@ -240,12 +308,19 @@ def main():
             st.markdown("""
             **FDA Adverse Event Case Viewer**
             
-            Version 2.0
+            Version 2.1 - Google Sheets Integration
             
-            Created for clinical assessors to efficiently review adverse event reports with grouped drug information.
+            Features:
+            - Direct Google Sheets connection
+            - Auto-refresh (10 min cache)
+            - Search 55,000+ cases instantly
+            - All fields displayed
+            - Advanced filtering
+            
+            Created for clinical assessors to efficiently review adverse event reports.
             """)
     
-    # Load data
+    # Load data from file upload
     if uploaded_file:
         try:
             if uploaded_file.name.endswith('.tsv') or uploaded_file.name.endswith('.txt'):
@@ -253,6 +328,7 @@ def main():
             else:
                 df = pd.read_csv(uploaded_file)
             st.session_state['df'] = df
+            st.session_state['data_source'] = 'file_upload'
             
             # Show dataset statistics
             col1, col2, col3, col4 = st.columns(4)
@@ -275,10 +351,32 @@ def main():
     
     # Check if data is loaded
     if 'df' not in st.session_state or st.session_state['df'] is None:
-        st.info("👆 Please upload a file or load sample data from the sidebar")
+        st.info("👆 Please load data from Google Sheets or upload a file from the sidebar")
         return
     
     df = st.session_state['df']
+    
+    # Show dataset statistics if loaded from Google Sheets
+    if st.session_state.get('data_source') == 'google_sheets':
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Cases", f"{len(df):,}")
+        with col2:
+            unique_primary = df['primaryid'].nunique() if 'primaryid' in df.columns else 0
+            st.metric("Unique Primary IDs", f"{unique_primary:,}")
+        with col3:
+            unique_case = df['caseid'].nunique() if 'caseid' in df.columns else 0
+            st.metric("Unique Case IDs", f"{unique_case:,}")
+        with col4:
+            assessors = df['assessor'].nunique() if 'assessor' in df.columns else 0
+            st.metric("Assessors", f"{assessors:,}")
+        
+        st.success(f"✅ Data loaded from Google Sheets!")
+        
+        # Add refresh button
+        if st.button("🔄 Refresh Data from Google Sheets"):
+            st.cache_data.clear()
+            st.rerun()
     
     # Search interface
     st.markdown("---")
