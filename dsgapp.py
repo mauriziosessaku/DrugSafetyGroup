@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import io
+import datetime
 
 # Page config
 st.set_page_config(
@@ -28,6 +30,16 @@ st.markdown("""
         font-size: 20px;
         font-weight: 600;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .sub-section-header {
+        background: #e9ecef;
+        color: #495057;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin: 15px 0 10px 0;
+        font-size: 16px;
+        font-weight: 600;
+        border-left: 5px solid #667eea;
     }
     .drug-card {
         border: 2px solid #e0e0e0;
@@ -94,8 +106,31 @@ st.markdown("""
         margin-bottom: 15px;
         font-weight: 500;
     }
+    .assessment-box {
+        background-color: #ffffff;
+        padding: 25px;
+        border-radius: 10px;
+        border: 1px solid #d1d1d1;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
 </style>
 """, unsafe_allow_html=True)
+
+def format_date_std(date_str):
+    """Format date string to YYYY-MM-DD"""
+    if pd.isna(date_str) or date_str == '' or str(date_str).strip().upper() == 'NA':
+        return 'NA'
+    
+    # Clean up string
+    date_str = str(date_str).strip()
+    
+    try:
+        # Try parsing with pandas, which handles many formats (ISO, YYYYMMDD, etc.)
+        dt = pd.to_datetime(date_str, errors='raise')
+        return dt.strftime('%Y-%m-%d')
+    except:
+        # Return original if parsing fails
+        return date_str
 
 def parse_separated_values(value):
     """Parse semicolon-separated values"""
@@ -163,8 +198,9 @@ def process_drug_data(row):
             'dose_form': dose_forms[i] if i < len(dose_forms) else 'NA',
             'dose_frequency': dose_freqs[i] if i < len(dose_freqs) else 'NA',
             'indication': indications[i] if i < len(indications) else 'NA',
-            'start_date': start_dates[i] if i < len(start_dates) else 'NA',
-            'end_date': end_dates[i] if i < len(end_dates) else 'NA',
+            # Format dates here
+            'start_date': format_date_std(start_dates[i]) if i < len(start_dates) else 'NA',
+            'end_date': format_date_std(end_dates[i]) if i < len(end_dates) else 'NA',
             'dechallenge': dechals[i] if i < len(dechals) else 'NA',
             'rechallenge': rechals[i] if i < len(rechals) else 'NA',
             'lot_number': lot_nums[i] if i < len(lot_nums) else 'NA',
@@ -172,7 +208,7 @@ def process_drug_data(row):
             'dose_vbm': dose_vbms[i] if i < len(dose_vbms) else 'NA',
             'cum_dose_chr': cum_dose_chrs[i] if i < len(cum_dose_chrs) else 'NA',
             'cum_dose_unit': cum_dose_units[i] if i < len(cum_dose_units) else 'NA',
-            'exp_dt': exp_dts[i] if i < len(exp_dts) else 'NA',
+            'exp_dt': format_date_std(exp_dts[i]) if i < len(exp_dts) else 'NA',
             'nda_num': nda_nums[i] if i < len(nda_nums) else 'NA',
             'duration': durs[i] if i < len(durs) else 'NA',
             'duration_code': dur_cods[i] if i < len(dur_cods) else 'NA'
@@ -183,6 +219,10 @@ def process_drug_data(row):
 def display_field(label, value, col=None):
     """Display a labeled field"""
     container = col if col else st
+    # If the label implies a date, format it
+    if 'Date' in label or label.endswith('dt') or label.endswith('Dt'):
+         value = format_date_std(value)
+         
     container.markdown(f'<div class="field-label">{label}</div>', unsafe_allow_html=True)
     container.markdown(f'<div class="field-value">{value if value else "NA"}</div>', unsafe_allow_html=True)
 
@@ -209,7 +249,8 @@ def main():
             **Steps:**
             1. **Upload your CSV/TSV file** above
             2. **Enter Primary ID or Case ID** to search
-            3. **View organized case information**
+            3. **Fill the Assessment** at the bottom
+            4. **Download** the result
             
             **Search:**
             - Enter Primary ID or Case ID
@@ -227,13 +268,13 @@ def main():
             st.markdown("""
             **FDA Adverse Event Case Viewer**
             
-            Version 2.2 - Streamlined
+            Version 2.3 - Assessment Enabled
             
             Features:
             - Search 55,000+ cases instantly
-            - All fields displayed
-            - Advanced filtering
-            - Drug information grouped
+            - Independent Status/Assessor section
+            - Integrated Assessment Template
+            - Downloadable Evaluation
             
             Created for clinical assessors.
             """)
@@ -332,12 +373,8 @@ def main():
             if len(matches) > 0:
                 row = matches.iloc[0]
                 st.success(f"✅ Found case with Primary ID: {search_primary}")
-                if len(matches) > 1:
-                    st.info(f"ℹ️ Found {len(matches)} matching cases. Showing first result.")
             else:
                 st.error(f"❌ No case found with Primary ID: {search_primary}")
-                if len(filtered_df) < len(df):
-                    st.info("💡 Tip: Try removing filters in Advanced Search Options")
                 return
         
         elif search_case:
@@ -348,12 +385,8 @@ def main():
             if len(matches) > 0:
                 row = matches.iloc[0]
                 st.success(f"✅ Found case with Case ID: {search_case}")
-                if len(matches) > 1:
-                    st.info(f"ℹ️ Found {len(matches)} matching cases. Showing first result.")
             else:
                 st.error(f"❌ No case found with Case ID: {search_case}")
-                if len(filtered_df) < len(df):
-                    st.info("💡 Tip: Try removing filters in Advanced Search Options")
                 return
         else:
             st.warning("⚠️ Please enter a Primary ID or Case ID to search")
@@ -361,23 +394,25 @@ def main():
     else:
         # Show prompt to search
         st.info("👆 Enter a Primary ID or Case ID above and click Search")
-        
-        # Show sample IDs
-        if len(df) > 0:
-            st.markdown("**Sample IDs you can try:**")
-            sample_cols = st.columns(3)
-            for i, (idx, sample_row) in enumerate(df.head(3).iterrows()):
-                with sample_cols[i]:
-                    st.code(f"Primary ID: {sample_row.get('primaryid', 'NA')}\nCase ID: {sample_row.get('caseid', 'NA')}")
         return
     
     st.markdown("---")
     
-    # Administrative Section
+    # === NEW SECTION: Status & Assessor ===
+    st.markdown('<div class="section-header">📌 Status & Assignment</div>', unsafe_allow_html=True)
+    status_cols = st.columns(3)
+    with status_cols[0]:
+        display_field("Status", row.get('status', 'NA'))
+    with status_cols[1]:
+        display_field("Assessor", row.get('assessor', 'NA'))
+    with status_cols[2]:
+        display_field("Assignment Date", row.get('date_assignement', 'NA'))
+
+    # Administrative Section (Updated: Removed Status/Assessor)
     st.markdown('<div class="section-header">📋 Administrative Information</div>', unsafe_allow_html=True)
     
     # Row 1: Primary identifiers
-    admin_cols1 = st.columns(5)
+    admin_cols1 = st.columns(4)
     with admin_cols1[0]:
         display_field("Case ID", row.get('caseid', 'NA'))
     with admin_cols1[1]:
@@ -385,25 +420,21 @@ def main():
     with admin_cols1[2]:
         display_field("Case Version", row.get('caseversion', 'NA'))
     with admin_cols1[3]:
-        display_field("Status", row.get('status', 'NA'))
-    with admin_cols1[4]:
         display_field("I/F Code", row.get('i_f_code', 'NA'))
     
-    # Row 2: Dates
-    admin_cols2 = st.columns(5)
+    # Row 2: Dates (Event Date is also here for reference, but repeated in drugs)
+    admin_cols2 = st.columns(4)
     with admin_cols2[0]:
-        display_field("Assignment Date", row.get('date_assignement', 'NA'))
-    with admin_cols2[1]:
         display_field("Event Date", row.get('event_dt', 'NA'))
-    with admin_cols2[2]:
+    with admin_cols2[1]:
         display_field("Manufacture Date", row.get('mfr_dt', 'NA'))
-    with admin_cols2[3]:
+    with admin_cols2[2]:
         display_field("Initial FDA Date", row.get('init_fda_dt', 'NA'))
-    with admin_cols2[4]:
+    with admin_cols2[3]:
         display_field("FDA Date", row.get('fda_dt', 'NA'))
     
     # Row 3: Report info
-    admin_cols3 = st.columns(5)
+    admin_cols3 = st.columns(4)
     with admin_cols3[0]:
         display_field("Report Date", row.get('rept_dt', 'NA'))
     with admin_cols3[1]:
@@ -411,8 +442,6 @@ def main():
     with admin_cols3[2]:
         display_field("To Manufacturer", row.get('to_mfr', 'NA'))
     with admin_cols3[3]:
-        display_field("Assessor", row.get('assessor', 'NA'))
-    with admin_cols3[4]:
         display_field("Reporter Country", row.get('reporter_country', 'NA'))
     
     # Row 4: Manufacturer info
@@ -457,6 +486,8 @@ def main():
     
     # Drugs Section
     drugs = process_drug_data(row)
+    case_event_date = format_date_std(row.get('event_dt', 'NA'))
+    
     st.markdown(f'<div class="section-header">💊 Drug Information ({len(drugs)} drugs)</div>', unsafe_allow_html=True)
     
     for drug in drugs:
@@ -484,7 +515,8 @@ def main():
         with drug_cols1[2]:
             display_field("Route", drug['route'])
         with drug_cols1[3]:
-            display_field("VAL VBM", drug['val_vbm'])
+            # === NEW: Event Date repeated here ===
+            display_field("Event Date", case_event_date)
         
         # Row 2: Dosing
         st.markdown("**Dosing Information**")
@@ -530,12 +562,12 @@ def main():
         with drug_cols4[2]:
             display_field("NDA Number", drug['nda_num'])
         with drug_cols4[3]:
-            display_field("Sequence", drug['sequence'])
+            display_field("Val VBM", drug['val_vbm'])
         
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
     
-    # Narrative Section (if available)
+    # Narrative Section
     if 'narrative' in row and pd.notna(row.get('narrative')) and str(row.get('narrative')).strip() not in ['', 'NA']:
         st.markdown('<div class="section-header">📝 Case Narrative</div>', unsafe_allow_html=True)
         st.markdown(f"""
@@ -543,20 +575,108 @@ def main():
         {row.get('narrative', 'NA')}
         </div>
         """, unsafe_allow_html=True)
-    
-    # Clean Narrative Section (if different from narrative)
-    if 'narrative_clean' in row and pd.notna(row.get('narrative_clean')) and str(row.get('narrative_clean')).strip() not in ['', 'NA']:
-        clean_narrative = str(row.get('narrative_clean', ''))
-        original_narrative = str(row.get('narrative', ''))
         
-        # Only show if different from original narrative
-        if clean_narrative != original_narrative:
-            st.markdown('<div class="section-header">📋 Cleaned Case Narrative</div>', unsafe_allow_html=True)
-            st.markdown(f"""
-            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-family: monospace; font-size: 13px;">
-            {clean_narrative}
-            </div>
-            """, unsafe_allow_html=True)
+    # === NEW SECTION: Assessment Form ===
+    st.markdown("---")
+    st.markdown('<div class="section-header">⚖️ Case Assessment</div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="assessment-box">', unsafe_allow_html=True)
+        st.markdown("### Evaluate Case")
+        st.caption("Complete the assessment based on the ICSR template. Download the result below.")
+        
+        with st.form("assessment_form"):
+            # Header info (Pre-filled)
+            col_a1, col_a2 = st.columns(2)
+            with col_a1:
+                asm_case = st.text_input("Case Number", value=str(row.get('caseid', '')), disabled=True)
+            with col_a2:
+                # Pre-fill PTs
+                default_pt = str(row.get('pt', '')).replace(';', ', ')
+                asm_pt = st.text_area("Preferred Terms (PT)", value=default_pt, height=68)
+
+            # Pre-fill Drug Names
+            default_drugs = ", ".join([d['drug_name'] for d in drugs])
+            asm_drug = st.text_area("Drug Name(s)", value=default_drugs)
+            
+            st.markdown("#### Clinical Questions")
+            
+            # Generate 10 Questions based on template structure
+            # Using tabs for better organization
+            tab1, tab2 = st.tabs(["Questions 1-5", "Questions 6-10"])
+            
+            scores = {}
+            reasonings = {}
+            
+            with tab1:
+                for i in range(1, 6):
+                    st.markdown(f"**Question {i}**")
+                    c1, c2 = st.columns([1, 3])
+                    with c1:
+                        scores[f'q{i}_score'] = st.number_input(f"Q{i} Score", min_value=-10, max_value=10, value=0, key=f"q{i}s")
+                    with c2:
+                        reasonings[f'q{i}_reasoning'] = st.text_input(f"Q{i} Reasoning", key=f"q{i}r")
+                    st.divider()
+
+            with tab2:
+                for i in range(6, 11):
+                    st.markdown(f"**Question {i}**")
+                    c1, c2 = st.columns([1, 3])
+                    with c1:
+                        scores[f'q{i}_score'] = st.number_input(f"Q{i} Score", min_value=-10, max_value=10, value=0, key=f"q{i}s")
+                    with c2:
+                        reasonings[f'q{i}_reasoning'] = st.text_input(f"Q{i} Reasoning", key=f"q{i}r")
+                    st.divider()
+            
+            st.markdown("#### Final Evaluation")
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                asm_final_score = st.number_input("Final Score", value=0)
+            with col_f2:
+                asm_outcome = st.selectbox("Outcome", ["", "Related", "Not Related", "Indeterminate", "Unlikely"])
+            
+            asm_desc = st.text_area("Description / Conclusion")
+            
+            # Hidden narrative field for the file
+            asm_narrative = row.get('narrative', '')
+            
+            submitted = st.form_submit_button("✅ Generate Assessment", use_container_width=True)
+            
+            if submitted:
+                # Create dictionary for DataFrame matching template columns
+                data = {
+                    'case': [asm_case], # assuming case matches case_id in this context
+                    'case_id': [asm_case],
+                    'pt': [asm_pt],
+                    'drug_name': [asm_drug]
+                }
+                
+                # Add scores and reasonings
+                for i in range(1, 11):
+                    data[f'q{i}_score'] = [scores[f'q{i}_score']]
+                    data[f'q{i}_reasoning'] = [reasonings[f'q{i}_reasoning']]
+                
+                # Add finals
+                data['final_score'] = [asm_final_score]
+                data['outcome'] = [asm_outcome]
+                data['description'] = [asm_desc]
+                data['case_narrative'] = [asm_narrative]
+                
+                # Convert to DataFrame
+                result_df = pd.DataFrame(data)
+                
+                # Convert to CSV for download
+                csv = result_df.to_csv(index=False).encode('utf-8')
+                
+                st.success("Assessment generated! Download below.")
+                st.download_button(
+                    label="📥 Download Assessment (CSV)",
+                    data=csv,
+                    file_name=f"assessment_{asm_case}_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv"
+                )
+                
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
